@@ -1,170 +1,59 @@
-env:
-  LORRI_NO_INSTALL_PANIC_HANDLER: absolutely
-jobs:
-  j01-simple-checks:
-    name: Simple Checks
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Nix
-        uses: cachix/install-nix-action@v26
-      - name: Cachix
-        uses: cachix/cachix-action@v14
-        with:
-          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-          name: nix-community
-      - name: Add rustc to PATH
-        run: |
-          set -euo pipefail
-          rustc_path="$(nix-build -A rustc nix/nixpkgs-stable.nix)/bin"
-          echo "$rustc_path" >> "$GITHUB_PATH"
-      - name: print PATH
-        run: printenv PATH
-      - name: Build simple checks
-        run: |
-          nix-build \
-            --out-link ./simple-tests \
-            --arg isDevelopmentShell false \
-            -A ci.testsuite-simple-checks \
-            shell.nix
-      - name: Run simple checks
-        run: |
-          ./simple-tests
-  j02-rust-ubuntu-latest:
-    name: Rust and CI tests (ubuntu-latest)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Nix
-        uses: cachix/install-nix-action@v26
-      - name: Cachix
-        uses: cachix/cachix-action@v14
-        with:
-          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-          name: nix-community
-      - name: Add rustc to PATH
-        run: |
-          set -euo pipefail
-          rustc_path="$(nix-build -A rustc nix/nixpkgs-stable.nix)/bin"
-          echo "$rustc_path" >> "$GITHUB_PATH"
-      - name: print PATH
-        run: printenv PATH
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2.7.3
-      - name: Build CI tests
-        run: |
-          nix-build \
-            --out-link ./ci-tests \
-            --arg isDevelopmentShell false \
-            -A ci.testsuite \
-            shell.nix
-      - name: Run CI tests
-        run: |
-          ./ci-tests
-  j03-nix-build_stable-ubuntu-latest:
-    name: nix-build [nixos stable] (ubuntu-latest)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Nix
-        uses: cachix/install-nix-action@v26
-      - name: Cachix
-        uses: cachix/cachix-action@v14
-        with:
-          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-          name: nix-community
-      - name: Build
-        run: nix-build
-      - name: Install
-        run: nix-env -i ./result
-  j04-overlay-ubuntu-latest:
-    name: Overlay builds (ubuntu-latest)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Nix
-        uses: cachix/install-nix-action@v26
-      - name: Cachix
-        uses: cachix/cachix-action@v14
-        with:
-          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-          name: nix-community
-      - name: Build w/ overlay (stable)
-        run: nix-build ./nix/overlay.nix -A lorri --arg pkgs ./nix/nixpkgs-stable.json
-  j12-rust-macos-latest:
-    name: Rust and CI tests (macos-latest)
-    runs-on: macos-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Nix
-        uses: cachix/install-nix-action@v26
-      - name: Cachix
-        uses: cachix/cachix-action@v14
-        with:
-          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-          name: nix-community
-      - name: Add rustc to PATH
-        run: |
-          set -euo pipefail
-          rustc_path="$(nix-build -A rustc nix/nixpkgs-stable.nix)/bin"
-          echo "$rustc_path" >> "$GITHUB_PATH"
-      - name: print PATH
-        run: printenv PATH
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2.7.3
-      - name: Build CI tests
-        run: |
-          nix-build \
-            --out-link ./ci-tests \
-            --arg isDevelopmentShell false \
-            -A ci.testsuite \
-            shell.nix
-      - name: Run CI tests
-        run: |
-          ./ci-tests
-  j13-nix-build_stable-macos-latest:
-    name: nix-build [nixos stable] (macos-latest)
-    runs-on: macos-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Nix
-        uses: cachix/install-nix-action@v26
-      - name: Cachix
-        uses: cachix/cachix-action@v14
-        with:
-          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-          name: nix-community
-      - name: Build
-        run: nix-build
-      - name: Install
-        run: nix-env -i ./result
-  j14-overlay-macos-latest:
-    name: Overlay builds (macos-latest)
-    runs-on: macos-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Nix
-        uses: cachix/install-nix-action@v26
-      - name: Cachix
-        uses: cachix/cachix-action@v14
-        with:
-          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-          name: nix-community
-      - name: Build w/ overlay (stable)
-        run: nix-build ./nix/overlay.nix -A lorri --arg pkgs ./nix/nixpkgs-stable.json
 name: CI
-"on":
+on:
   pull_request:
-    branches:
-      - '**'
+    branches: ["**"]
   push:
-    branches:
-      - master
+    branches: [master]
   workflow_dispatch: {}
+jobs:
+  go-test-ubuntu:
+    name: Go tests (ubuntu-latest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: cachix/install-nix-action@v31.10.4
+      - uses: cachix/cachix-action@v17
+        with:
+          name: nix-community
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      - name: Run tests
+        run: nix develop .#ci --command go test ./...
+
+  go-test-macos:
+    name: Go tests (macos-latest)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: cachix/install-nix-action@v31.10.4
+      - uses: cachix/cachix-action@v17
+        with:
+          name: nix-community
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      - name: Run tests
+        run: nix develop .#ci --command go test ./...
+
+  nix-build-ubuntu:
+    name: nix build (ubuntu-latest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: cachix/install-nix-action@v31.10.4
+      - uses: cachix/cachix-action@v17
+        with:
+          name: nix-community
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      - name: Build
+        run: nix build
+
+  nix-build-macos:
+    name: nix build (macos-latest)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: cachix/install-nix-action@v31.10.4
+      - uses: cachix/cachix-action@v17
+        with:
+          name: nix-community
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      - name: Build
+        run: nix build
